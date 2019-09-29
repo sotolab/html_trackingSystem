@@ -1,0 +1,216 @@
+<!Doctype html>
+<html>
+<head>
+    <title> 농산물 이력 관리 </title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- bootsrtap CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css">
+    <script type="text/javascript" src="./js/coinstack-1.1.19.min.js"></script>
+    <script src="http://code.jquery.com/jquery-latest.js "></script>
+    <script type="text/javascript">
+        console.log('starting...');
+        let DEBUG = 1;
+        let index = 0;
+
+        let client = new CoinStack('c7dbfacbdf1510889b38c01b8440b1', '10e88e9904f29c98356fd2d12b26de', 'c3sp2.blocko.io', 'https');
+        console.log("client: ", client);
+
+        let fromAddress = "14d4mVCnvG3wFTo7e8kgaJp85e8ca8hJEC"
+        let privateKey = "Kyf7FibpdRhfpzp28dFBQSDiv4exevgDFJhhm74HUe2Y55dCZAA9"
+
+        function getBalance() {
+            client.getBalance(fromAddress, function (err, balance) {
+                if (DEBUG) console.log("fromAddress getBalance: ", CoinStack.Math.toBitcoin(balance) + ' BTC');
+            });
+        }
+
+        let source = `
+        local system = require("system");
+
+        -- 상태 저장소에 키-밸류 저장
+        function setFunc(key, value)
+            system.setItem(key, value);
+        end
+        
+        -- 상태 저장소에서 키에 해당하는 값 반환
+        function getFunc(key)
+            return system.getItem(key);
+        end
+`
+
+
+        function listGet(index) {
+            let result = [];
+            client.queryContract(fromAddress, "LSC", 'res,err = call("getFunc","' + index + '") return res', function (err, res) {
+                if (err != undefined) return;
+
+                let strArray = res.result
+
+                if (DEBUG) {
+                    console.log("+@getResult:", res);
+                    console.log("+@results:", res.result);
+                    console.log("+@strArray[0]:", strArray[0]);
+                    console.log("+@strArray[1]:", strArray[1]);
+                    console.log("+@strArray[2]:", strArray[2]);
+                    console.log("+@strArray[3]:", strArray[3]);
+                    console.log("+@strArray[4]:", strArray[4]);
+                }
+
+                let table = document.getElementById("table1");
+                let row = table.insertRow();
+                let cell1 = row.insertCell(0);
+                let cell2 = row.insertCell(1);
+                let cell3 = row.insertCell(2);
+                let cell4 = row.insertCell(3);
+                let cell5 = row.insertCell(4);
+                cell1.innerHTML = strArray[0];
+                cell2.innerHTML = strArray[1];
+                cell3.innerHTML = strArray[2];
+                cell4.innerHTML = strArray[3];
+                cell5.innerHTML = strArray[4];
+
+            })
+
+        }
+
+        function clearTable() {
+            var tableRef = document.getElementById('table1');
+            while (tableRef.rows.length > 0) {
+                tableRef.deleteRow(0);
+            }
+        }
+
+        function getResult() {
+            console.log("getResult");
+            clearTable()
+
+            for (let i = 1; i < 10; i++) {
+                listGet(i);
+                console.log("index: " + i);
+            }
+        }
+
+        function executeSource(source) {
+            let builder = client.createLuaContractBuilder()
+            builder = builder.setInput(fromAddress).setContractID(fromAddress);
+            builder.setExecution(source)
+            builder.buildTransaction(function (err, tx) {
+                try {
+                    tx.sign(privateKey);
+                    let rawTx = tx.serialize();
+                    client.sendTransaction(rawTx, function (err) {
+                        if (!err) {
+                            console.log("executeSource: ", tx.getHash());
+                        }
+                    });
+
+                } catch (e) {
+                    console.log(e)
+                }
+            })
+            getBalance()
+        }
+
+        function createContract() {
+            index++;
+            let setTime = doTime();
+            let cName = document.getElementById('cName').value;
+            let iName = document.getElementById('iName').value;
+            let pName = document.getElementById('pName').value;
+            executeSource('call("setFunc","' + index + '", {"' + index + '","' + cName + '","' + iName + '","' + pName + '","' + setTime + '"})');
+            alert("생성이 완료되었습니다.\n" + index);
+
+            if (DEBUG) {
+                console.log('+createContract');
+            }
+            getResult();
+        }
+
+        function doTime() {
+            let value = Date.now();
+            let today = new Date();
+            let date = today.getFullYear() + '-' + (today.getMonth() + 1) + '-' + today.getDate();
+            let time = today.getHours() + ":" + today.getMinutes() + ":" + today.getSeconds();
+            let dateTime = date + ' ' + time;
+            return dateTime;
+        }
+
+        function doSend() {
+            index++;
+            let setTime = doTime();
+            let cName = document.getElementById('cName').value;
+            let iName = document.getElementById('iName').value;
+            let pName = document.getElementById('pName').value;
+            executeSource('call("setFunc","' + index + '", {"' + index + '","' + cName + '","' + iName + '","' + pName + '","' + setTime + '"})');
+            getBalance()
+            alert("생성이 완료되었습니다.\n" + index);
+            getResult();
+        }
+
+    </script>
+</head>
+
+<body>
+    <nav class="navbar navbar-inverse navbar-fixed-top">
+        <div class="container">
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false"
+                    aria-controls="navbar">
+                </button>
+                <a class="navbar-brand" href="#">Blocko</a>
+            </div>
+            <div id="navbar" class="navbar-collapse collapse">
+                <ul class="nav navbar-nav">
+                    <li class="active">
+                        <a href="#">BTC </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    <br>
+    <br>
+
+    <div class="container theme-showcase" role="main">
+        <h2>
+            <strong> 농산물 이력관리 시스템 </strong>
+        </h2>
+        <form>
+            <label>수량:
+                <input type="text" id="cName" name="pronumber" value="1" placeholder="How many..">
+            </label>
+            <br>
+            <label>품명:
+                <input type="text" id="iName" name="proname" value="제주감귤" placeholder="How many..">
+            </label>
+            <br>
+            <label>지역:
+                <input type="text" id="pName" name="proloc" value="제주" placeholder="How many..">
+            </label>
+            <br>
+        </form>
+
+        <button type="button" id="doSend" onClick="doSend();"> 저장 </button>
+
+        <div class="panel-body">
+            <p> Message </P>
+            <div id="description"></div>
+            <div id="tablePlace">
+                <button type="button" id="createVote" onClick="getResult();">리스트 새로고침</button>
+            </div>
+            <div id="resultPlace"></div>
+            <table style="width:100%" id="table1"></table>
+        </div>
+    </div>
+    <hr>
+</body>
+<footer class="py-5 bg-dark">
+    <div class="container">
+        <p class="m-0 text-center text-white">
+            <b>Copyright &copy; Blocko 2019</b>
+        </p>
+    </div>
+</footer>
+</body>
+</html>
